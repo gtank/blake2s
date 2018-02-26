@@ -4,7 +4,6 @@ package blake2s
 import (
 	"encoding/binary"
 	"errors"
-	"math/bits"
 )
 
 // The constant values will be different for other BLAKE2 variants. These are
@@ -201,21 +200,21 @@ func (d *Digest) compress() error {
 			m1 := m[SIGMA[round][2*i+1]]
 			switch i {
 			case 0:
-				v[0], v[4], v[8], v[12] = g(v[0], v[4], v[8], v[12], m0, m1)
+				v[0], v[4], v[8], v[12] = g(v[0]+v[4]+m0, v[4], v[8], v[12], m1)
 			case 1:
-				v[1], v[5], v[9], v[13] = g(v[1], v[5], v[9], v[13], m0, m1)
+				v[1], v[5], v[9], v[13] = g(v[1]+v[5]+m0, v[5], v[9], v[13], m1)
 			case 2:
-				v[2], v[6], v[10], v[14] = g(v[2], v[6], v[10], v[14], m0, m1)
+				v[2], v[6], v[10], v[14] = g(v[2]+v[6]+m0, v[6], v[10], v[14], m1)
 			case 3:
-				v[3], v[7], v[11], v[15] = g(v[3], v[7], v[11], v[15], m0, m1)
+				v[3], v[7], v[11], v[15] = g(v[3]+v[7]+m0, v[7], v[11], v[15], m1)
 			case 4:
-				v[0], v[5], v[10], v[15] = g(v[0], v[5], v[10], v[15], m0, m1)
+				v[0], v[5], v[10], v[15] = g(v[0]+v[5]+m0, v[5], v[10], v[15], m1)
 			case 5:
-				v[1], v[6], v[11], v[12] = g(v[1], v[6], v[11], v[12], m0, m1)
+				v[1], v[6], v[11], v[12] = g(v[1]+v[6]+m0, v[6], v[11], v[12], m1)
 			case 6:
-				v[2], v[7], v[8], v[13] = g(v[2], v[7], v[8], v[13], m0, m1)
+				v[2], v[7], v[8], v[13] = g(v[2]+v[7]+m0, v[7], v[8], v[13], m1)
 			case 7:
-				v[3], v[4], v[9], v[14] = g(v[3], v[4], v[9], v[14], m0, m1)
+				v[3], v[4], v[9], v[14] = g(v[3]+v[4]+m0, v[4], v[9], v[14], m1)
 			default:
 				return errors.New("blake2s: invalid round index")
 			}
@@ -267,17 +266,21 @@ func (d *Digest) finalize() ([]byte, error) {
 	return out, nil
 }
 
-// The internal BLAKE2s round function. We lift the table lookups into the
-// caller so this function has a better chance of inlining.
-func g(a, b, c, d, m0, m1 uint32) (uint32, uint32, uint32, uint32) {
-	a = a + b + m0
-	d = bits.RotateLeft32(d^a, -16)
+// The internal BLAKE2s round function.
+func g(a, b, c, d, m1 uint32) (uint32, uint32, uint32, uint32) {
+	// We lift the table lookups and the initial triple addition into the
+	// caller so this function has a better chance of inlining. Similarly, the
+	// math/bits calls are themselves inlinable but seem to count against us in
+	// the AST budget anyway. TODO: file a bug for that
+
+	// a = a + b + m0
+	d = ((d ^ a) >> 16) | ((d ^ a) << (32 - 16))
 	c = c + d
-	b = bits.RotateLeft32(b^c, -12)
+	b = ((b ^ c) >> 12) | ((b ^ c) << (32 - 12))
 	a = a + b + m1
-	d = bits.RotateLeft32(d^a, -8)
+	d = ((d ^ a) >> 8) | ((d ^ a) << (32 - 8))
 	c = c + d
-	b = bits.RotateLeft32(b^c, -7)
+	b = ((b ^ c) >> 7) | ((b ^ c) << (32 - 7))
 	return a, b, c, d
 }
 
