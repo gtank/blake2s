@@ -152,3 +152,28 @@ func TestPersonality(t *testing.T) {
 		}
 	}
 }
+
+var emptyBuf = make([]byte, 8192)
+
+func benchmarkHashSize(b *testing.B, size int) {
+	b.SetBytes(int64(size))
+	sum := make([]byte, 32)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		digest, _ := NewDigest(nil, nil, nil, 32)
+		digest.Write(emptyBuf[:size])
+		digest.Sum(sum[:0])
+	}
+}
+
+func BenchmarkHash8Bytes(b *testing.B) {
+	benchmarkHashSize(b, 8)
+}
+
+func BenchmarkHash1K(b *testing.B) {
+	benchmarkHashSize(b, 1024)
+}
+
+func BenchmarkHash8K(b *testing.B) {
+	benchmarkHashSize(b, 8192)
+}
