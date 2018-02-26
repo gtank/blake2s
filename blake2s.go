@@ -195,30 +195,37 @@ func (d *Digest) compress() error {
 	v[15] = IV7 ^ d.f1
 
 	for round := 0; round < RoundCount; round++ {
-		for i := 0; i < 8; i++ {
-			m0 := m[SIGMA[round][2*i+0]]
-			m1 := m[SIGMA[round][2*i+1]]
-			switch i {
-			case 0:
-				v[0], v[4], v[8], v[12] = g(v[0]+v[4]+m0, v[4], v[8], v[12], m1)
-			case 1:
-				v[1], v[5], v[9], v[13] = g(v[1]+v[5]+m0, v[5], v[9], v[13], m1)
-			case 2:
-				v[2], v[6], v[10], v[14] = g(v[2]+v[6]+m0, v[6], v[10], v[14], m1)
-			case 3:
-				v[3], v[7], v[11], v[15] = g(v[3]+v[7]+m0, v[7], v[11], v[15], m1)
-			case 4:
-				v[0], v[5], v[10], v[15] = g(v[0]+v[5]+m0, v[5], v[10], v[15], m1)
-			case 5:
-				v[1], v[6], v[11], v[12] = g(v[1]+v[6]+m0, v[6], v[11], v[12], m1)
-			case 6:
-				v[2], v[7], v[8], v[13] = g(v[2]+v[7]+m0, v[7], v[8], v[13], m1)
-			case 7:
-				v[3], v[4], v[9], v[14] = g(v[3]+v[4]+m0, v[4], v[9], v[14], m1)
-			default:
-				return errors.New("blake2s: invalid round index")
-			}
-		}
+		m0 := m[SIGMA[round][2*0+0]]
+		m1 := m[SIGMA[round][2*0+1]]
+		v[0], v[4], v[8], v[12] = g(v[0]+v[4]+m0, v[4], v[8], v[12], m1)
+
+		m0 = m[SIGMA[round][2*1+0]]
+		m1 = m[SIGMA[round][2*1+1]]
+		v[1], v[5], v[9], v[13] = g(v[1]+v[5]+m0, v[5], v[9], v[13], m1)
+
+		m0 = m[SIGMA[round][2*2+0]]
+		m1 = m[SIGMA[round][2*2+1]]
+		v[2], v[6], v[10], v[14] = g(v[2]+v[6]+m0, v[6], v[10], v[14], m1)
+
+		m0 = m[SIGMA[round][2*3+0]]
+		m1 = m[SIGMA[round][2*3+1]]
+		v[3], v[7], v[11], v[15] = g(v[3]+v[7]+m0, v[7], v[11], v[15], m1)
+
+		m0 = m[SIGMA[round][2*4+0]]
+		m1 = m[SIGMA[round][2*4+1]]
+		v[0], v[5], v[10], v[15] = g(v[0]+v[5]+m0, v[5], v[10], v[15], m1)
+
+		m0 = m[SIGMA[round][2*5+0]]
+		m1 = m[SIGMA[round][2*5+1]]
+		v[1], v[6], v[11], v[12] = g(v[1]+v[6]+m0, v[6], v[11], v[12], m1)
+
+		m0 = m[SIGMA[round][2*6+0]]
+		m1 = m[SIGMA[round][2*6+1]]
+		v[2], v[7], v[8], v[13] = g(v[2]+v[7]+m0, v[7], v[8], v[13], m1)
+
+		m0 = m[SIGMA[round][2*7+0]]
+		m1 = m[SIGMA[round][2*7+1]]
+		v[3], v[4], v[9], v[14] = g(v[3]+v[4]+m0, v[4], v[9], v[14], m1)
 	}
 
 	for i := 0; i < 8; i++ {
