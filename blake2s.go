@@ -175,11 +175,23 @@ func (d *Digest) compress() error {
 		return errors.New("blake2s: internal hash state too large")
 	}
 
-	// Split the buffer into 32-bit words.
-	m := make([]uint32, 16)
-	for i := 0; i < 16; i++ {
-		m[i] = binary.LittleEndian.Uint32(d.buf[i*4 : i*4+4])
-	}
+	// Split the buffer into 16x32-bit words.
+	m0 := binary.LittleEndian.Uint32(d.buf[0*4 : 0*4+4])
+	m1 := binary.LittleEndian.Uint32(d.buf[1*4 : 1*4+4])
+	m2 := binary.LittleEndian.Uint32(d.buf[2*4 : 2*4+4])
+	m3 := binary.LittleEndian.Uint32(d.buf[3*4 : 3*4+4])
+	m4 := binary.LittleEndian.Uint32(d.buf[4*4 : 4*4+4])
+	m5 := binary.LittleEndian.Uint32(d.buf[5*4 : 5*4+4])
+	m6 := binary.LittleEndian.Uint32(d.buf[6*4 : 6*4+4])
+	m7 := binary.LittleEndian.Uint32(d.buf[7*4 : 7*4+4])
+	m8 := binary.LittleEndian.Uint32(d.buf[8*4 : 8*4+4])
+	m9 := binary.LittleEndian.Uint32(d.buf[9*4 : 9*4+4])
+	m10 := binary.LittleEndian.Uint32(d.buf[10*4 : 10*4+4])
+	m11 := binary.LittleEndian.Uint32(d.buf[11*4 : 11*4+4])
+	m12 := binary.LittleEndian.Uint32(d.buf[12*4 : 12*4+4])
+	m13 := binary.LittleEndian.Uint32(d.buf[13*4 : 13*4+4])
+	m14 := binary.LittleEndian.Uint32(d.buf[14*4 : 14*4+4])
+	m15 := binary.LittleEndian.Uint32(d.buf[15*4 : 15*4+4])
 
 	// Create the internal round state. Copy the current hash state to the top,
 	// then the tweaked IVs to the bottom. Use local variables to avoid
@@ -192,335 +204,122 @@ func (d *Digest) compress() error {
 	v14 := IV6 ^ d.f0
 	v15 := IV7 ^ d.f1
 
-	// Round 0 w/ precomputed offsets
-	m0 := m[0]
-	m1 := m[1]
+	// This round structure is several steps removed from the spec and
+	// reference implementation. We unrolled the loops and calculated the
+	// offsets from the permutation table entry for each round, then directly
+	// mapped it to the correct word of the input block. This is a tradeoff:
+	// the doubly-indirect lookups were horrible for performance, but it's not
+	// at all obvious what this code is doing anymore.
+
+	// Round 0 w/ precomputed permutation offsets
 	v0, v4, v8, v12 = g(v0+v4+m0, v4, v8, v12, m1)
+	v1, v5, v9, v13 = g(v1+v5+m2, v5, v9, v13, m3)
+	v2, v6, v10, v14 = g(v2+v6+m4, v6, v10, v14, m5)
+	v3, v7, v11, v15 = g(v3+v7+m6, v7, v11, v15, m7)
 
-	m0 = m[2]
-	m1 = m[3]
-	v1, v5, v9, v13 = g(v1+v5+m0, v5, v9, v13, m1)
-
-	m0 = m[4]
-	m1 = m[5]
-	v2, v6, v10, v14 = g(v2+v6+m0, v6, v10, v14, m1)
-
-	m0 = m[6]
-	m1 = m[7]
-	v3, v7, v11, v15 = g(v3+v7+m0, v7, v11, v15, m1)
-
-	m0 = m[8]
-	m1 = m[9]
-	v0, v5, v10, v15 = g(v0+v5+m0, v5, v10, v15, m1)
-
-	m0 = m[10]
-	m1 = m[11]
-	v1, v6, v11, v12 = g(v1+v6+m0, v6, v11, v12, m1)
-
-	m0 = m[12]
-	m1 = m[13]
-	v2, v7, v8, v13 = g(v2+v7+m0, v7, v8, v13, m1)
-
-	m0 = m[14]
-	m1 = m[15]
-	v3, v4, v9, v14 = g(v3+v4+m0, v4, v9, v14, m1)
+	v0, v5, v10, v15 = g(v0+v5+m8, v5, v10, v15, m9)
+	v1, v6, v11, v12 = g(v1+v6+m10, v6, v11, v12, m11)
+	v2, v7, v8, v13 = g(v2+v7+m12, v7, v8, v13, m13)
+	v3, v4, v9, v14 = g(v3+v4+m14, v4, v9, v14, m15)
 
 	// Round 1
-	m0 = m[14]
-	m1 = m[10]
-	v0, v4, v8, v12 = g(v0+v4+m0, v4, v8, v12, m1)
+	v0, v4, v8, v12 = g(v0+v4+m14, v4, v8, v12, m10)
+	v1, v5, v9, v13 = g(v1+v5+m4, v5, v9, v13, m8)
+	v2, v6, v10, v14 = g(v2+v6+m9, v6, v10, v14, m15)
+	v3, v7, v11, v15 = g(v3+v7+m13, v7, v11, v15, m6)
 
-	m0 = m[4]
-	m1 = m[8]
-	v1, v5, v9, v13 = g(v1+v5+m0, v5, v9, v13, m1)
-
-	m0 = m[9]
-	m1 = m[15]
-	v2, v6, v10, v14 = g(v2+v6+m0, v6, v10, v14, m1)
-
-	m0 = m[13]
-	m1 = m[6]
-	v3, v7, v11, v15 = g(v3+v7+m0, v7, v11, v15, m1)
-
-	m0 = m[1]
-	m1 = m[12]
-	v0, v5, v10, v15 = g(v0+v5+m0, v5, v10, v15, m1)
-
-	m0 = m[0]
-	m1 = m[2]
-	v1, v6, v11, v12 = g(v1+v6+m0, v6, v11, v12, m1)
-
-	m0 = m[11]
-	m1 = m[7]
-	v2, v7, v8, v13 = g(v2+v7+m0, v7, v8, v13, m1)
-
-	m0 = m[5]
-	m1 = m[3]
-	v3, v4, v9, v14 = g(v3+v4+m0, v4, v9, v14, m1)
+	v0, v5, v10, v15 = g(v0+v5+m1, v5, v10, v15, m12)
+	v1, v6, v11, v12 = g(v1+v6+m0, v6, v11, v12, m2)
+	v2, v7, v8, v13 = g(v2+v7+m11, v7, v8, v13, m7)
+	v3, v4, v9, v14 = g(v3+v4+m5, v4, v9, v14, m3)
 
 	// Round 2
-	m0 = m[11]
-	m1 = m[8]
-	v0, v4, v8, v12 = g(v0+v4+m0, v4, v8, v12, m1)
+	v0, v4, v8, v12 = g(v0+v4+m11, v4, v8, v12, m8)
+	v1, v5, v9, v13 = g(v1+v5+m12, v5, v9, v13, m0)
+	v2, v6, v10, v14 = g(v2+v6+m5, v6, v10, v14, m2)
+	v3, v7, v11, v15 = g(v3+v7+m15, v7, v11, v15, m13)
 
-	m0 = m[12]
-	m1 = m[0]
-	v1, v5, v9, v13 = g(v1+v5+m0, v5, v9, v13, m1)
-
-	m0 = m[5]
-	m1 = m[2]
-	v2, v6, v10, v14 = g(v2+v6+m0, v6, v10, v14, m1)
-
-	m0 = m[15]
-	m1 = m[13]
-	v3, v7, v11, v15 = g(v3+v7+m0, v7, v11, v15, m1)
-
-	m0 = m[10]
-	m1 = m[14]
-	v0, v5, v10, v15 = g(v0+v5+m0, v5, v10, v15, m1)
-
-	m0 = m[3]
-	m1 = m[6]
-	v1, v6, v11, v12 = g(v1+v6+m0, v6, v11, v12, m1)
-
-	m0 = m[7]
-	m1 = m[1]
-	v2, v7, v8, v13 = g(v2+v7+m0, v7, v8, v13, m1)
-
-	m0 = m[9]
-	m1 = m[4]
-	v3, v4, v9, v14 = g(v3+v4+m0, v4, v9, v14, m1)
+	v0, v5, v10, v15 = g(v0+v5+m10, v5, v10, v15, m14)
+	v1, v6, v11, v12 = g(v1+v6+m3, v6, v11, v12, m6)
+	v2, v7, v8, v13 = g(v2+v7+m7, v7, v8, v13, m1)
+	v3, v4, v9, v14 = g(v3+v4+m9, v4, v9, v14, m4)
 
 	// Round 3
-	m0 = m[7]
-	m1 = m[9]
-	v0, v4, v8, v12 = g(v0+v4+m0, v4, v8, v12, m1)
+	v0, v4, v8, v12 = g(v0+v4+m7, v4, v8, v12, m9)
+	v1, v5, v9, v13 = g(v1+v5+m3, v5, v9, v13, m1)
+	v2, v6, v10, v14 = g(v2+v6+m13, v6, v10, v14, m12)
+	v3, v7, v11, v15 = g(v3+v7+m11, v7, v11, v15, m14)
 
-	m0 = m[3]
-	m1 = m[1]
-	v1, v5, v9, v13 = g(v1+v5+m0, v5, v9, v13, m1)
-
-	m0 = m[13]
-	m1 = m[12]
-	v2, v6, v10, v14 = g(v2+v6+m0, v6, v10, v14, m1)
-
-	m0 = m[11]
-	m1 = m[14]
-	v3, v7, v11, v15 = g(v3+v7+m0, v7, v11, v15, m1)
-
-	m0 = m[2]
-	m1 = m[6]
-	v0, v5, v10, v15 = g(v0+v5+m0, v5, v10, v15, m1)
-
-	m0 = m[5]
-	m1 = m[10]
-	v1, v6, v11, v12 = g(v1+v6+m0, v6, v11, v12, m1)
-
-	m0 = m[4]
-	m1 = m[0]
-	v2, v7, v8, v13 = g(v2+v7+m0, v7, v8, v13, m1)
-
-	m0 = m[15]
-	m1 = m[8]
-	v3, v4, v9, v14 = g(v3+v4+m0, v4, v9, v14, m1)
+	v0, v5, v10, v15 = g(v0+v5+m2, v5, v10, v15, m6)
+	v1, v6, v11, v12 = g(v1+v6+m5, v6, v11, v12, m10)
+	v2, v7, v8, v13 = g(v2+v7+m4, v7, v8, v13, m0)
+	v3, v4, v9, v14 = g(v3+v4+m15, v4, v9, v14, m8)
 
 	// Round 4
-	m0 = m[9]
-	m1 = m[0]
-	v0, v4, v8, v12 = g(v0+v4+m0, v4, v8, v12, m1)
+	v0, v4, v8, v12 = g(v0+v4+m9, v4, v8, v12, m0)
+	v1, v5, v9, v13 = g(v1+v5+m5, v5, v9, v13, m7)
+	v2, v6, v10, v14 = g(v2+v6+m2, v6, v10, v14, m4)
+	v3, v7, v11, v15 = g(v3+v7+m10, v7, v11, v15, m15)
 
-	m0 = m[5]
-	m1 = m[7]
-	v1, v5, v9, v13 = g(v1+v5+m0, v5, v9, v13, m1)
-
-	m0 = m[2]
-	m1 = m[4]
-	v2, v6, v10, v14 = g(v2+v6+m0, v6, v10, v14, m1)
-
-	m0 = m[10]
-	m1 = m[15]
-	v3, v7, v11, v15 = g(v3+v7+m0, v7, v11, v15, m1)
-
-	m0 = m[14]
-	m1 = m[1]
-	v0, v5, v10, v15 = g(v0+v5+m0, v5, v10, v15, m1)
-
-	m0 = m[11]
-	m1 = m[12]
-	v1, v6, v11, v12 = g(v1+v6+m0, v6, v11, v12, m1)
-
-	m0 = m[6]
-	m1 = m[8]
-	v2, v7, v8, v13 = g(v2+v7+m0, v7, v8, v13, m1)
-
-	m0 = m[3]
-	m1 = m[13]
-	v3, v4, v9, v14 = g(v3+v4+m0, v4, v9, v14, m1)
+	v0, v5, v10, v15 = g(v0+v5+m14, v5, v10, v15, m1)
+	v1, v6, v11, v12 = g(v1+v6+m11, v6, v11, v12, m12)
+	v2, v7, v8, v13 = g(v2+v7+m6, v7, v8, v13, m8)
+	v3, v4, v9, v14 = g(v3+v4+m3, v4, v9, v14, m13)
 
 	// Round 5
-	m0 = m[2]
-	m1 = m[12]
-	v0, v4, v8, v12 = g(v0+v4+m0, v4, v8, v12, m1)
+	v0, v4, v8, v12 = g(v0+v4+m2, v4, v8, v12, m12)
+	v1, v5, v9, v13 = g(v1+v5+m6, v5, v9, v13, m10)
+	v2, v6, v10, v14 = g(v2+v6+m0, v6, v10, v14, m11)
+	v3, v7, v11, v15 = g(v3+v7+m8, v7, v11, v15, m3)
 
-	m0 = m[6]
-	m1 = m[10]
-	v1, v5, v9, v13 = g(v1+v5+m0, v5, v9, v13, m1)
-
-	m0 = m[0]
-	m1 = m[11]
-	v2, v6, v10, v14 = g(v2+v6+m0, v6, v10, v14, m1)
-
-	m0 = m[8]
-	m1 = m[3]
-	v3, v7, v11, v15 = g(v3+v7+m0, v7, v11, v15, m1)
-
-	m0 = m[4]
-	m1 = m[13]
-	v0, v5, v10, v15 = g(v0+v5+m0, v5, v10, v15, m1)
-
-	m0 = m[7]
-	m1 = m[5]
-	v1, v6, v11, v12 = g(v1+v6+m0, v6, v11, v12, m1)
-
-	m0 = m[15]
-	m1 = m[14]
-	v2, v7, v8, v13 = g(v2+v7+m0, v7, v8, v13, m1)
-
-	m0 = m[1]
-	m1 = m[9]
-	v3, v4, v9, v14 = g(v3+v4+m0, v4, v9, v14, m1)
+	v0, v5, v10, v15 = g(v0+v5+m4, v5, v10, v15, m13)
+	v1, v6, v11, v12 = g(v1+v6+m7, v6, v11, v12, m5)
+	v2, v7, v8, v13 = g(v2+v7+m15, v7, v8, v13, m14)
+	v3, v4, v9, v14 = g(v3+v4+m1, v4, v9, v14, m9)
 
 	// Round 6
-	m0 = m[12]
-	m1 = m[5]
-	v0, v4, v8, v12 = g(v0+v4+m0, v4, v8, v12, m1)
+	v0, v4, v8, v12 = g(v0+v4+m12, v4, v8, v12, m5)
+	v1, v5, v9, v13 = g(v1+v5+m1, v5, v9, v13, m15)
+	v2, v6, v10, v14 = g(v2+v6+m14, v6, v10, v14, m13)
+	v3, v7, v11, v15 = g(v3+v7+m4, v7, v11, v15, m10)
 
-	m0 = m[1]
-	m1 = m[15]
-	v1, v5, v9, v13 = g(v1+v5+m0, v5, v9, v13, m1)
-
-	m0 = m[14]
-	m1 = m[13]
-	v2, v6, v10, v14 = g(v2+v6+m0, v6, v10, v14, m1)
-
-	m0 = m[4]
-	m1 = m[10]
-	v3, v7, v11, v15 = g(v3+v7+m0, v7, v11, v15, m1)
-
-	m0 = m[0]
-	m1 = m[7]
-	v0, v5, v10, v15 = g(v0+v5+m0, v5, v10, v15, m1)
-
-	m0 = m[6]
-	m1 = m[3]
-	v1, v6, v11, v12 = g(v1+v6+m0, v6, v11, v12, m1)
-
-	m0 = m[9]
-	m1 = m[2]
-	v2, v7, v8, v13 = g(v2+v7+m0, v7, v8, v13, m1)
-
-	m0 = m[8]
-	m1 = m[11]
-	v3, v4, v9, v14 = g(v3+v4+m0, v4, v9, v14, m1)
+	v0, v5, v10, v15 = g(v0+v5+m0, v5, v10, v15, m7)
+	v1, v6, v11, v12 = g(v1+v6+m6, v6, v11, v12, m3)
+	v2, v7, v8, v13 = g(v2+v7+m9, v7, v8, v13, m2)
+	v3, v4, v9, v14 = g(v3+v4+m8, v4, v9, v14, m11)
 
 	// Round 7
-	m0 = m[13]
-	m1 = m[11]
-	v0, v4, v8, v12 = g(v0+v4+m0, v4, v8, v12, m1)
+	v0, v4, v8, v12 = g(v0+v4+m13, v4, v8, v12, m11)
+	v1, v5, v9, v13 = g(v1+v5+m7, v5, v9, v13, m14)
+	v2, v6, v10, v14 = g(v2+v6+m12, v6, v10, v14, m1)
+	v3, v7, v11, v15 = g(v3+v7+m3, v7, v11, v15, m9)
 
-	m0 = m[7]
-	m1 = m[14]
-	v1, v5, v9, v13 = g(v1+v5+m0, v5, v9, v13, m1)
-
-	m0 = m[12]
-	m1 = m[1]
-	v2, v6, v10, v14 = g(v2+v6+m0, v6, v10, v14, m1)
-
-	m0 = m[3]
-	m1 = m[9]
-	v3, v7, v11, v15 = g(v3+v7+m0, v7, v11, v15, m1)
-
-	m0 = m[5]
-	m1 = m[0]
-	v0, v5, v10, v15 = g(v0+v5+m0, v5, v10, v15, m1)
-
-	m0 = m[15]
-	m1 = m[4]
-	v1, v6, v11, v12 = g(v1+v6+m0, v6, v11, v12, m1)
-
-	m0 = m[8]
-	m1 = m[6]
-	v2, v7, v8, v13 = g(v2+v7+m0, v7, v8, v13, m1)
-
-	m0 = m[2]
-	m1 = m[10]
-	v3, v4, v9, v14 = g(v3+v4+m0, v4, v9, v14, m1)
+	v0, v5, v10, v15 = g(v0+v5+m5, v5, v10, v15, m0)
+	v1, v6, v11, v12 = g(v1+v6+m15, v6, v11, v12, m4)
+	v2, v7, v8, v13 = g(v2+v7+m8, v7, v8, v13, m6)
+	v3, v4, v9, v14 = g(v3+v4+m2, v4, v9, v14, m10)
 
 	// Round 8
-	m0 = m[6]
-	m1 = m[15]
-	v0, v4, v8, v12 = g(v0+v4+m0, v4, v8, v12, m1)
+	v0, v4, v8, v12 = g(v0+v4+m6, v4, v8, v12, m15)
+	v1, v5, v9, v13 = g(v1+v5+m14, v5, v9, v13, m9)
+	v2, v6, v10, v14 = g(v2+v6+m11, v6, v10, v14, m3)
+	v3, v7, v11, v15 = g(v3+v7+m0, v7, v11, v15, m8)
 
-	m0 = m[14]
-	m1 = m[9]
-	v1, v5, v9, v13 = g(v1+v5+m0, v5, v9, v13, m1)
-
-	m0 = m[11]
-	m1 = m[3]
-	v2, v6, v10, v14 = g(v2+v6+m0, v6, v10, v14, m1)
-
-	m0 = m[0]
-	m1 = m[8]
-	v3, v7, v11, v15 = g(v3+v7+m0, v7, v11, v15, m1)
-
-	m0 = m[12]
-	m1 = m[2]
-	v0, v5, v10, v15 = g(v0+v5+m0, v5, v10, v15, m1)
-
-	m0 = m[13]
-	m1 = m[7]
-	v1, v6, v11, v12 = g(v1+v6+m0, v6, v11, v12, m1)
-
-	m0 = m[1]
-	m1 = m[4]
-	v2, v7, v8, v13 = g(v2+v7+m0, v7, v8, v13, m1)
-
-	m0 = m[10]
-	m1 = m[5]
-	v3, v4, v9, v14 = g(v3+v4+m0, v4, v9, v14, m1)
+	v0, v5, v10, v15 = g(v0+v5+m12, v5, v10, v15, m2)
+	v1, v6, v11, v12 = g(v1+v6+m13, v6, v11, v12, m7)
+	v2, v7, v8, v13 = g(v2+v7+m1, v7, v8, v13, m4)
+	v3, v4, v9, v14 = g(v3+v4+m10, v4, v9, v14, m5)
 
 	// Round 9
-	m0 = m[10]
-	m1 = m[2]
-	v0, v4, v8, v12 = g(v0+v4+m0, v4, v8, v12, m1)
+	v0, v4, v8, v12 = g(v0+v4+m10, v4, v8, v12, m2)
+	v1, v5, v9, v13 = g(v1+v5+m8, v5, v9, v13, m4)
+	v2, v6, v10, v14 = g(v2+v6+m7, v6, v10, v14, m6)
+	v3, v7, v11, v15 = g(v3+v7+m1, v7, v11, v15, m5)
 
-	m0 = m[8]
-	m1 = m[4]
-	v1, v5, v9, v13 = g(v1+v5+m0, v5, v9, v13, m1)
-
-	m0 = m[7]
-	m1 = m[6]
-	v2, v6, v10, v14 = g(v2+v6+m0, v6, v10, v14, m1)
-
-	m0 = m[1]
-	m1 = m[5]
-	v3, v7, v11, v15 = g(v3+v7+m0, v7, v11, v15, m1)
-
-	m0 = m[15]
-	m1 = m[11]
-	v0, v5, v10, v15 = g(v0+v5+m0, v5, v10, v15, m1)
-
-	m0 = m[9]
-	m1 = m[14]
-	v1, v6, v11, v12 = g(v1+v6+m0, v6, v11, v12, m1)
-
-	m0 = m[3]
-	m1 = m[12]
-	v2, v7, v8, v13 = g(v2+v7+m0, v7, v8, v13, m1)
-
-	m0 = m[13]
-	m1 = m[0]
-	v3, v4, v9, v14 = g(v3+v4+m0, v4, v9, v14, m1)
+	v0, v5, v10, v15 = g(v0+v5+m15, v5, v10, v15, m11)
+	v1, v6, v11, v12 = g(v1+v6+m9, v6, v11, v12, m14)
+	v2, v7, v8, v13 = g(v2+v7+m3, v7, v8, v13, m12)
+	v3, v4, v9, v14 = g(v3+v4+m13, v4, v9, v14, m0)
 
 	d.h[0] = d.h[0] ^ v0 ^ v8
 	d.h[1] = d.h[1] ^ v1 ^ v9
