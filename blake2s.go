@@ -149,12 +149,15 @@ func (d *Digest) Write(input []byte) (n int, err error) {
 			d.t1++
 		}
 
-		// compress
-		err := d.compress()
-		if err != nil {
-			// TODO a Hash should never return error on write
-			return bytesWritten, err
-		}
+		// Before compressing, sanity-check the internal states.
+		// if len(d.buf) != cap(d.buf) || len(d.buf) != BlockBytes {
+		// 	return bytesWritten, errors.New("blake2s: tried to compress when buffer wasn't full")
+		// }
+		// if len(d.h) != 8 {
+		// 	return bytesWritten, errors.New("blake2s: internal hash state too large")
+		// }
+
+		d.compress()
 
 		// advance pointers
 		bytesWritten += freeBytes
@@ -166,15 +169,7 @@ func (d *Digest) Write(input []byte) (n int, err error) {
 	return bytesWritten, nil
 }
 
-func (d *Digest) compress() error {
-	if len(d.buf) != cap(d.buf) || len(d.buf) != BlockBytes {
-		return errors.New("blake2s: tried to compress when buffer wasn't full")
-	}
-
-	if len(d.h) != 8 {
-		return errors.New("blake2s: internal hash state too large")
-	}
-
+func (d *Digest) compress() {
 	// Split the buffer into 16x32-bit words.
 	m0 := binary.LittleEndian.Uint32(d.buf[0*4 : 0*4+4])
 	m1 := binary.LittleEndian.Uint32(d.buf[1*4 : 1*4+4])
@@ -329,8 +324,6 @@ func (d *Digest) compress() error {
 	d.h[5] = d.h[5] ^ v5 ^ v13
 	d.h[6] = d.h[6] ^ v6 ^ v14
 	d.h[7] = d.h[7] ^ v7 ^ v15
-
-	return nil
 }
 
 // Note that due to the nature of the hash.Hash interface, calling finalize
@@ -356,11 +349,15 @@ func (d *Digest) finalize() ([]byte, error) {
 	// set last block flag
 	dCopy.f0 = 0xFFFFFFFF
 
-	// compress
-	err := dCopy.compress()
-	if err != nil {
-		return nil, err
-	}
+	// Before compressing, sanity-check the internal states.
+	// if len(dCopy.buf) != cap(dCopy.buf) || len(dCopy.buf) != BlockBytes {
+	// 	return nil, errors.New("blake2s: tried to compress when buffer wasn't full")
+	// }
+	// if len(dCopy.h) != 8 {
+	// 	return nil, errors.New("blake2s: internal hash state too large")
+	// }
+
+	dCopy.compress()
 
 	// extract output
 	out := make([]byte, dCopy.size)
