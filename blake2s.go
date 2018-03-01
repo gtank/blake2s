@@ -288,8 +288,15 @@ func (d *Digest) finalize() ([]byte, error) {
 
 	// make copies of everything
 	dCopy := *d
-	dCopy.buf = make([]byte, cap(d.buf)) // want this zero-padded to BlockSize anyway
-	copy(dCopy.buf, d.buf)
+
+	// Zero the unused portion of the buffer. This triggers a specific
+	// optimization for memset, see https://codereview.appspot.com/137880043
+	dCopy.buf = d.buf[len(d.buf):cap(d.buf)]
+	for i := range dCopy.buf {
+		dCopy.buf[i] = 0
+	}
+	dCopy.buf = d.buf[0:cap(d.buf)]
+
 	dCopy.h = make([]uint32, len(d.h))
 	copy(dCopy.h, d.h)
 
