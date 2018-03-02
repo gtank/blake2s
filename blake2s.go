@@ -1,4 +1,6 @@
-// An implementation of blake2s with support for salting and personalization.
+// Package blake2s implements the BLAKE2s secure hashing algorithm with support
+// for salting and personalization. BLAKE2s is optimized for 8- to 32-bit
+// platforms and produces digests of any size between 1 and 32 bytes
 package blake2s
 
 import (
@@ -68,7 +70,7 @@ func (p *parameterBlock) Marshal() []byte {
 	return buf
 }
 
-// The internal state of the BLAKE2s algorithm.
+// Digest represents the internal state of the BLAKE2s algorithm.
 type Digest struct {
 	h      [8]uint32
 	t0, t1 uint32
@@ -316,6 +318,8 @@ func (d *Digest) finalize() ([]byte, error) {
 	return out, nil
 }
 
+// NewDigest constructs a new instance of a BLAKE2s hash with the provided
+// configuration.
 func NewDigest(key, salt, personalization []byte, outputBytes int) (*Digest, error) {
 	params := &parameterBlock{
 		fanout: 1, // sequential mode
@@ -424,7 +428,7 @@ func (d *Digest) Reset() {
 	panic("BLAKE2 cannot be reset without storing the key")
 }
 
-// Digest output size in bytes.
+// Size returns the digest output size in bytes.
 func (d *Digest) Size() int { return d.size }
 
 // BlockSize returns the hash's underlying block size. The Write method must be
