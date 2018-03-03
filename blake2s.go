@@ -70,7 +70,7 @@ func (p *parameterBlock) Marshal() []byte {
 
 // The internal state of the BLAKE2s algorithm.
 type Digest struct {
-	h      []uint32
+	h      [8]uint32
 	t0, t1 uint32
 	f0, f1 uint32
 
@@ -95,7 +95,7 @@ func initFromParams(p *parameterBlock) *Digest {
 	h7 := IV7 ^ binary.LittleEndian.Uint32(paramBytes[28:32])
 
 	d := &Digest{
-		h:    []uint32{h0, h1, h2, h3, h4, h5, h6, h7},
+		h:    [8]uint32{h0, h1, h2, h3, h4, h5, h6, h7},
 		buf:  make([]byte, 0, BlockSize),
 		size: int(p.DigestSize),
 	}
@@ -296,9 +296,6 @@ func (d *Digest) finalize() ([]byte, error) {
 		dCopy.buf[i] = 0
 	}
 	dCopy.buf = d.buf[0:cap(d.buf)]
-
-	dCopy.h = make([]uint32, len(d.h))
-	copy(dCopy.h, d.h)
 
 	// increment counter by size of pending input before padding
 	dCopy.t0 += uint32(len(d.buf))

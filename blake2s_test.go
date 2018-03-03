@@ -89,6 +89,30 @@ func TestStandardVectors(t *testing.T) {
 	}
 }
 
+func TestStreamingWrite(t *testing.T) {
+	test := &ReferenceTestVector{
+		Input:  "00010203",
+		Key:    "",
+		Output: "0cc70e00348b86ba2944d0c32038b25c55584f90df2304f55fa332af5fb01e20",
+	}
+
+	decodedInput, _ := hex.DecodeString(test.Input)
+	decodedOutput, _ := hex.DecodeString(test.Output)
+
+	d, err := NewDigest(nil, nil, nil, 32)
+	if err != nil {
+		t.Error(err)
+	}
+
+	d.Write(decodedInput[:len(decodedInput)/2])
+	_ = d.Sum(nil)
+	d.Write(decodedInput[len(decodedInput)/2:])
+
+	if !bytes.Equal(decodedOutput, d.Sum(nil)) {
+		t.Errorf("Interrupted write produced wrong output")
+	}
+}
+
 var testVectors = []struct {
 	input, key, salt, personality, output string
 }{
