@@ -385,16 +385,14 @@ func (d *Digest) Write(input []byte) (n int, err error) {
 		inputLeft := len(input) - bytesWritten
 
 		if inputLeft <= freeBytes {
-			oldOffset := len(d.buf)
 			newOffset := len(d.buf) + inputLeft
-			copy(d.buf[oldOffset:newOffset], input[bytesWritten:])
+			copy(d.buf[len(d.buf):newOffset], input[bytesWritten:])
 			d.buf = d.buf[0:newOffset]
 			return bytesWritten + inputLeft, nil
 		}
 
-		oldOffset := len(d.buf)
 		newOffset := len(d.buf) + freeBytes
-		copy(d.buf[oldOffset:newOffset], input[bytesWritten:bytesWritten+freeBytes])
+		copy(d.buf[len(d.buf):newOffset], input[bytesWritten:bytesWritten+freeBytes])
 		d.buf = d.buf[0:newOffset]
 
 		// increment counter, preserving overflow behavior
