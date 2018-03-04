@@ -89,6 +89,83 @@ func TestStandardVectors(t *testing.T) {
 	}
 }
 
+func TestFullInputBlock(t *testing.T) {
+	test := &ReferenceTestVector{
+		Input:  "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+		Key:    "",
+		Output: "56f34e8b96557e90c1f24b52d0c89d51086acf1b00f634cf1dde9233b8eaaa3e",
+	}
+
+	decodedInput, _ := hex.DecodeString(test.Input)
+	decodedOutput, _ := hex.DecodeString(test.Output)
+
+	d, err := NewDigest(nil, nil, nil, 32)
+	if err != nil {
+		t.Error(err)
+	}
+
+	d.Write(decodedInput)
+
+	if !bytes.Equal(decodedOutput, d.Sum(nil)) {
+		t.Errorf("Single representative write produced wrong output")
+	}
+}
+
+func TestKeyedWrite(t *testing.T) {
+	test := &ReferenceTestVector{
+		Input:  "00",
+		Key:    "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+		Output: "40d15fee7c328830166ac3f918650f807e7e01e177258cdc0a39b11f598066f1",
+	}
+
+	decodedInput, _ := hex.DecodeString(test.Input)
+	if len(decodedInput) == 0 {
+		decodedInput = nil
+	}
+	decodedKey, _ := hex.DecodeString(test.Key)
+	if len(decodedKey) == 0 {
+		decodedKey = nil
+	}
+	decodedOutput, _ := hex.DecodeString(test.Output)
+	d, err := NewDigest(decodedKey, nil, nil, 32)
+	if err != nil {
+		t.Error(err)
+	}
+	if decodedInput != nil {
+		d.Write(decodedInput)
+	}
+	if !bytes.Equal(decodedOutput, d.Sum(nil)) {
+		t.Errorf("Failed test: %v", test.Output)
+	}
+}
+
+func TestMultiBlockWrite(t *testing.T) {
+	test := &ReferenceTestVector{
+		Input:  "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40",
+		Key:    "",
+		Output: "1b53ee94aaf34e4b159d48de352c7f0661d0a40edff95a0b1639b4090e974472",
+	}
+	decodedInput, _ := hex.DecodeString(test.Input)
+	if len(decodedInput) == 0 {
+		decodedInput = nil
+	}
+	decodedKey, _ := hex.DecodeString(test.Key)
+	if len(decodedKey) == 0 {
+		decodedKey = nil
+	}
+	decodedOutput, _ := hex.DecodeString(test.Output)
+	d, err := NewDigest(decodedKey, nil, nil, 32)
+	if err != nil {
+		t.Error(err)
+	}
+	if decodedInput != nil {
+		d.Write(decodedInput)
+	}
+	if !bytes.Equal(decodedOutput, d.Sum(nil)) {
+		t.Errorf("Failed test: %v", test.Output)
+	}
+}
+
 func TestStreamingWrite(t *testing.T) {
 	test := &ReferenceTestVector{
 		Input:  "00010203",

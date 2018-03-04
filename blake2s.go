@@ -74,7 +74,8 @@ type Digest struct {
 	t0, t1 uint32
 	f0, f1 uint32
 
-	buf []byte
+	buf    [BlockSize]byte
+	offset int // current offset inside the block
 
 	// size is definted in hash.Hash, and returns the number of bytes Sum will
 	// return. Since BLAKE2 output length is dynamic, so is this.
@@ -96,7 +97,7 @@ func initFromParams(p *parameterBlock) *Digest {
 
 	d := &Digest{
 		h:    [8]uint32{h0, h1, h2, h3, h4, h5, h6, h7},
-		buf:  make([]byte, 0, BlockSize),
+		buf:  [BlockSize]byte{},
 		size: int(p.DigestSize),
 	}
 
@@ -291,15 +292,14 @@ func (d *Digest) finalize() ([]byte, error) {
 
 	// Zero the unused portion of the buffer. This triggers a specific
 	// optimization for memset, see https://codereview.appspot.com/137880043
-	dCopy.buf = d.buf[len(d.buf):cap(d.buf)]
-	for i := range dCopy.buf {
-		dCopy.buf[i] = 0
+	memclrBuf := dCopy.buf[dCopy.offset:BlockSize]
+	for i := range memclrBuf {
+		memclrBuf[i] = 0
 	}
-	dCopy.buf = d.buf[0:cap(d.buf)]
 
 	// increment counter by size of pending input before padding
-	dCopy.t0 += uint32(len(d.buf))
-	if dCopy.t0 < uint32(len(d.buf)) {
+	dCopy.t0 += uint32(d.offset)
+	if dCopy.t0 < uint32(d.offset) {
 		dCopy.t1++
 	}
 	// set last block flag
@@ -374,27 +374,25 @@ func NewDigest(key, salt, personalization []byte, outputBytes int) (*Digest, err
 func (d *Digest) Write(input []byte) (n int, err error) {
 	bytesWritten := 0
 
-	// If we have capacity, just copy and reslice to wait for a full block. If
-	// we don't have capacity, we'll need to take a full block and compress.
+	// If we have capacity, just copy and wait for a full block. If we don't
+	// have capacity, we'll need to take a full block and compress.
 	for bytesWritten < len(input) {
 		// How much space do we have left in the block?
-		freeBytes := cap(d.buf) - len(d.buf)
+		freeBytes := BlockSize - d.offset
 		inputLeft := len(input) - bytesWritten
 
 		if inputLeft <= freeBytes {
-			newOffset := len(d.buf) + inputLeft
-			copy(d.buf[len(d.buf):newOffset], input[bytesWritten:])
-			d.buf = d.buf[0:newOffset]
+			newOffset := d.offset + inputLeft
+			copy(d.buf[d.offset:newOffset], input[bytesWritten:])
+			d.offset = newOffset
 			return bytesWritten + inputLeft, nil
 		}
 
-		newOffset := len(d.buf) + freeBytes
-		copy(d.buf[len(d.buf):newOffset], input[bytesWritten:bytesWritten+freeBytes])
-		d.buf = d.buf[0:newOffset]
+		copy(d.buf[d.offset:], input[bytesWritten:bytesWritten+freeBytes])
 
 		// increment counter, preserving overflow behavior
-		d.t0 += uint32(len(d.buf))
-		if d.t0 < uint32(len(d.buf)) {
+		d.t0 += BlockSize
+		if d.t0 < BlockSize {
 			d.t1++
 		}
 
@@ -402,7 +400,7 @@ func (d *Digest) Write(input []byte) (n int, err error) {
 
 		// advance pointers
 		bytesWritten += freeBytes
-		d.buf = d.buf[:0]
+		d.offset = 0
 
 		// loop until we can't fill another buffer
 	}
