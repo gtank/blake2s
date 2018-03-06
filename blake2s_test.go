@@ -44,10 +44,12 @@ func TestNewDigest(t *testing.T) {
 
 // These come from the BLAKE2s reference implementation.
 type ReferenceTestVector struct {
-	Hash   string `json:"hash"`
-	Input  string `json:"in"`
-	Key    string `json:"key"`
-	Output string `json:"out"`
+	Hash    string `json:"hash"`
+	Input   string `json:"in"`
+	Key     string `json:"key"`
+	Persona string `json:"persona,omitempty"`
+	Salt    string `json:"salt,omitempty"`
+	Output  string `json:"out"`
 }
 
 func TestStandardVectors(t *testing.T) {
@@ -190,7 +192,7 @@ func TestStreamingWrite(t *testing.T) {
 	}
 }
 
-var testVectors = []struct {
+var extrasVectors = []struct {
 	input, key, salt, personality, output string
 }{
 	{
@@ -224,8 +226,8 @@ var testVectors = []struct {
 	},
 }
 
-func TestPersonality(t *testing.T) {
-	for _, test := range testVectors {
+func TestPersona(t *testing.T) {
+	for _, test := range extrasVectors {
 		decodedInput, _ := hex.DecodeString(test.input)
 		if len(decodedInput) == 0 {
 			decodedInput = nil
@@ -250,6 +252,58 @@ func TestPersonality(t *testing.T) {
 		}
 		if !bytes.Equal(decodedOutput, d.Sum(nil)) {
 			t.Errorf("Failed test: %v", test)
+		}
+	}
+}
+
+//go:generate python3 gen_vectors.py testdata/blake2s-extras.json
+
+func TestExtrasVectors(t *testing.T) {
+	jsonTestData, err := ioutil.ReadFile("testdata/blake2s-extras.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tests []ReferenceTestVector
+	err = json.Unmarshal(jsonTestData, &tests)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range tests {
+		if test.Hash != "blake2s" {
+			t.Errorf("Got a test for the wrong hash: %s", test.Hash)
+			continue
+		}
+		decodedInput, _ := hex.DecodeString(test.Input)
+		if len(decodedInput) == 0 {
+			decodedInput = nil
+		}
+		decodedKey, _ := hex.DecodeString(test.Key)
+		if len(decodedKey) == 0 {
+			decodedKey = nil
+		}
+		decodedSalt, _ := hex.DecodeString(test.Salt)
+		if len(decodedSalt) == 0 {
+			decodedSalt = nil
+		}
+		decodedPersona, _ := hex.DecodeString(test.Persona)
+		if len(decodedPersona) == 0 {
+			decodedPersona = nil
+		}
+		decodedOutput, _ := hex.DecodeString(test.Output)
+
+		d, err := NewDigest(decodedKey, decodedSalt, decodedPersona, 32)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+
+		if decodedInput != nil {
+			d.Write(decodedInput)
+		}
+
+		if !bytes.Equal(decodedOutput, d.Sum(nil)) {
+			t.Errorf("Failed test: %v", test.Output)
+			break
 		}
 	}
 }
