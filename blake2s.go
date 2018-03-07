@@ -311,9 +311,15 @@ func (d *Digest) finalize() ([]byte, error) {
 
 	// extract output
 	out := make([]byte, dCopy.size)
-	for i := 0; i < 8; i++ {
-		binary.LittleEndian.PutUint32(out[i*4:], dCopy.h[i])
-	}
+
+	binary.LittleEndian.PutUint32(out[0*4:], dCopy.h[0])
+	binary.LittleEndian.PutUint32(out[1*4:], dCopy.h[1])
+	binary.LittleEndian.PutUint32(out[2*4:], dCopy.h[2])
+	binary.LittleEndian.PutUint32(out[3*4:], dCopy.h[3])
+	binary.LittleEndian.PutUint32(out[4*4:], dCopy.h[4])
+	binary.LittleEndian.PutUint32(out[5*4:], dCopy.h[5])
+	binary.LittleEndian.PutUint32(out[6*4:], dCopy.h[6])
+	binary.LittleEndian.PutUint32(out[7*4:], dCopy.h[7])
 
 	return out, nil
 }
