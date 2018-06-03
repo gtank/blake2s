@@ -4,7 +4,6 @@
 package blake2s
 
 import (
-	"encoding/binary"
 	"errors"
 )
 
@@ -60,9 +59,9 @@ func (p *parameterBlock) Marshal() []byte {
 	buf[1] = p.KeyLength
 	buf[2] = p.fanout
 	buf[3] = p.depth
-	binary.LittleEndian.PutUint32(buf[4:], p.leafLength)
-	binary.LittleEndian.PutUint32(buf[8:], p.nodeOffset)
-	binary.LittleEndian.PutUint16(buf[12:], p.xofLength)
+	putU32LE(buf[4:], p.leafLength)
+	putU32LE(buf[8:], p.nodeOffset)
+	putU16LE(buf[12:], p.xofLength)
 	buf[14] = p.nodeDepth
 	buf[15] = p.innerLength
 	copy(buf[16:], p.Salt)
@@ -88,14 +87,14 @@ type Digest struct {
 func initFromParams(p *parameterBlock) *Digest {
 	paramBytes := p.Marshal()
 
-	h0 := IV0 ^ binary.LittleEndian.Uint32(paramBytes[0:4])
-	h1 := IV1 ^ binary.LittleEndian.Uint32(paramBytes[4:8])
-	h2 := IV2 ^ binary.LittleEndian.Uint32(paramBytes[8:12])
-	h3 := IV3 ^ binary.LittleEndian.Uint32(paramBytes[12:16])
-	h4 := IV4 ^ binary.LittleEndian.Uint32(paramBytes[16:20])
-	h5 := IV5 ^ binary.LittleEndian.Uint32(paramBytes[20:24])
-	h6 := IV6 ^ binary.LittleEndian.Uint32(paramBytes[24:28])
-	h7 := IV7 ^ binary.LittleEndian.Uint32(paramBytes[28:32])
+	h0 := IV0 ^ u32LE(paramBytes[0:4])
+	h1 := IV1 ^ u32LE(paramBytes[4:8])
+	h2 := IV2 ^ u32LE(paramBytes[8:12])
+	h3 := IV3 ^ u32LE(paramBytes[12:16])
+	h4 := IV4 ^ u32LE(paramBytes[16:20])
+	h5 := IV5 ^ u32LE(paramBytes[20:24])
+	h6 := IV6 ^ u32LE(paramBytes[24:28])
+	h7 := IV7 ^ u32LE(paramBytes[28:32])
 
 	d := &Digest{
 		h:    [8]uint32{h0, h1, h2, h3, h4, h5, h6, h7},
@@ -107,23 +106,6 @@ func initFromParams(p *parameterBlock) *Digest {
 }
 
 func (d *Digest) compress() {
-	// Split the buffer into 16x32-bit words.
-	m0 := binary.LittleEndian.Uint32(d.buf[0*4 : 0*4+4])
-	m1 := binary.LittleEndian.Uint32(d.buf[1*4 : 1*4+4])
-	m2 := binary.LittleEndian.Uint32(d.buf[2*4 : 2*4+4])
-	m3 := binary.LittleEndian.Uint32(d.buf[3*4 : 3*4+4])
-	m4 := binary.LittleEndian.Uint32(d.buf[4*4 : 4*4+4])
-	m5 := binary.LittleEndian.Uint32(d.buf[5*4 : 5*4+4])
-	m6 := binary.LittleEndian.Uint32(d.buf[6*4 : 6*4+4])
-	m7 := binary.LittleEndian.Uint32(d.buf[7*4 : 7*4+4])
-	m8 := binary.LittleEndian.Uint32(d.buf[8*4 : 8*4+4])
-	m9 := binary.LittleEndian.Uint32(d.buf[9*4 : 9*4+4])
-	m10 := binary.LittleEndian.Uint32(d.buf[10*4 : 10*4+4])
-	m11 := binary.LittleEndian.Uint32(d.buf[11*4 : 11*4+4])
-	m12 := binary.LittleEndian.Uint32(d.buf[12*4 : 12*4+4])
-	m13 := binary.LittleEndian.Uint32(d.buf[13*4 : 13*4+4])
-	m14 := binary.LittleEndian.Uint32(d.buf[14*4 : 14*4+4])
-	m15 := binary.LittleEndian.Uint32(d.buf[15*4 : 15*4+4])
 
 	// Create the internal round state. Copy the current hash state to the top,
 	// then the tweaked IVs to the bottom. Use local variables to avoid
@@ -142,16 +124,36 @@ func (d *Digest) compress() {
 	// mapped it to the correct word of the input block. This is a tradeoff:
 	// the doubly-indirect lookups were horrible for performance, but it's not
 	// at all obvious what this code is doing anymore.
+	//
+	// We also split the message buffer into 16x32-bit words (m0..m15) as late
+	// as possible before they're needed. The small decrease in liveness scope
+	// matters ever-so-slightly.
 
 	// Round 0 w/ precomputed permutation offsets
+	m0 := u32LE(d.buf[0*4 : 0*4+4])
+	m1 := u32LE(d.buf[1*4 : 1*4+4])
 	v0, v4, v8, v12 = g(v0+v4+m0, v4, v8, v12, m1)
+	m2 := u32LE(d.buf[2*4 : 2*4+4])
+	m3 := u32LE(d.buf[3*4 : 3*4+4])
 	v1, v5, v9, v13 = g(v1+v5+m2, v5, v9, v13, m3)
+	m4 := u32LE(d.buf[4*4 : 4*4+4])
+	m5 := u32LE(d.buf[5*4 : 5*4+4])
 	v2, v6, v10, v14 = g(v2+v6+m4, v6, v10, v14, m5)
+	m6 := u32LE(d.buf[6*4 : 6*4+4])
+	m7 := u32LE(d.buf[7*4 : 7*4+4])
 	v3, v7, v11, v15 = g(v3+v7+m6, v7, v11, v15, m7)
 
+	m8 := u32LE(d.buf[8*4 : 8*4+4])
+	m9 := u32LE(d.buf[9*4 : 9*4+4])
 	v0, v5, v10, v15 = g(v0+v5+m8, v5, v10, v15, m9)
+	m10 := u32LE(d.buf[10*4 : 10*4+4])
+	m11 := u32LE(d.buf[11*4 : 11*4+4])
 	v1, v6, v11, v12 = g(v1+v6+m10, v6, v11, v12, m11)
+	m12 := u32LE(d.buf[12*4 : 12*4+4])
+	m13 := u32LE(d.buf[13*4 : 13*4+4])
 	v2, v7, v8, v13 = g(v2+v7+m12, v7, v8, v13, m13)
+	m14 := u32LE(d.buf[14*4 : 14*4+4])
+	m15 := u32LE(d.buf[15*4 : 15*4+4])
 	v3, v4, v9, v14 = g(v3+v4+m14, v4, v9, v14, m15)
 
 	// Round 1
@@ -278,6 +280,8 @@ func g(a, b, c, d, m1 uint32) (uint32, uint32, uint32, uint32) {
 	d = ((d ^ a) >> 8) | ((d ^ a) << (32 - 8))
 	c = c + d
 	b = ((b ^ c) >> 7) | ((b ^ c) << (32 - 7))
+
+	// TODO does assigning into the parameters result in spills if the function isn't inlined?
 	return a, b, c, d
 }
 
@@ -312,14 +316,14 @@ func (d *Digest) finalize() ([]byte, error) {
 	// extract output
 	out := make([]byte, dCopy.size)
 
-	binary.LittleEndian.PutUint32(out[0*4:], dCopy.h[0])
-	binary.LittleEndian.PutUint32(out[1*4:], dCopy.h[1])
-	binary.LittleEndian.PutUint32(out[2*4:], dCopy.h[2])
-	binary.LittleEndian.PutUint32(out[3*4:], dCopy.h[3])
-	binary.LittleEndian.PutUint32(out[4*4:], dCopy.h[4])
-	binary.LittleEndian.PutUint32(out[5*4:], dCopy.h[5])
-	binary.LittleEndian.PutUint32(out[6*4:], dCopy.h[6])
-	binary.LittleEndian.PutUint32(out[7*4:], dCopy.h[7])
+	putU32LE(out[0*4:], dCopy.h[0])
+	putU32LE(out[1*4:], dCopy.h[1])
+	putU32LE(out[2*4:], dCopy.h[2])
+	putU32LE(out[3*4:], dCopy.h[3])
+	putU32LE(out[4*4:], dCopy.h[4])
+	putU32LE(out[5*4:], dCopy.h[5])
+	putU32LE(out[6*4:], dCopy.h[6])
+	putU32LE(out[7*4:], dCopy.h[7])
 
 	return out, nil
 }
