@@ -312,9 +312,9 @@ func (d *Digest) compress() error {
 // Note that due to the nature of the hash.Hash interface, calling finalize
 // WILL NOT permanently update the underlying hash state. Instead it will
 // simulate what would happen if the current block were the final block.
-func (d *Digest) finalize() ([]byte, error) {
+func (d *Digest) finalize(out []byte) error {
 	if d.f0 != 0 {
-		return nil, errors.New("blake2s: tried to finalize but last flag already set")
+		return errors.New("blake2s: tried to finalize but last flag already set")
 	}
 
 	// make copies of everything
@@ -338,16 +338,15 @@ func (d *Digest) finalize() ([]byte, error) {
 	// compress
 	err := dCopy.compress()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// extract output
-	out := make([]byte, dCopy.size)
 	for i := 0; i < 8; i++ {
 		binary.LittleEndian.PutUint32(out[i*4:], dCopy.h[i])
 	}
 
-	return out, nil
+	return nil
 }
 
 // The internal BLAKE2s round function.
@@ -424,12 +423,20 @@ func NewDigest(key, salt, personalization []byte, outputBytes int) (*Digest, err
 
 // Sum appends the current hash to b and returns the resulting slice.
 // It does not change the underlying hash state.
-func (d *Digest) Sum(b []byte) []byte {
-	out, err := d.finalize()
-	if err != nil {
-		return b
+func (d *Digest) Sum(b []byte) (out []byte) {
+	// If there's capacity, reuse the b slice
+	if n := len(b) + d.size; cap(b) >= n {
+		out = b[:n]
+	} else {
+		out = make([]byte, n)
+		copy(out, b)
 	}
-	return append(b, out...)
+
+	err := d.finalize(out[len(b):])
+	if err != nil {
+		return out[:len(b)]
+	}
+	return out
 }
 
 // Reset resets the Hash to its initial state.
