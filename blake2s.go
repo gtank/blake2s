@@ -69,7 +69,7 @@ func (p *parameterBlock) Marshal() []byte {
 
 // The internal state of the BLAKE2s algorithm.
 type Digest struct {
-	h      []uint32
+	h      [8]uint32
 	t0, t1 uint32
 	f0, f1 uint32
 
@@ -94,7 +94,7 @@ func initFromParams(p *parameterBlock) *Digest {
 	h7 := IV7 ^ binary.LittleEndian.Uint32(paramBytes[28:32])
 
 	d := &Digest{
-		h:    []uint32{h0, h1, h2, h3, h4, h5, h6, h7},
+		h:    [8]uint32{h0, h1, h2, h3, h4, h5, h6, h7},
 		buf:  make([]byte, 0, BlockBytes),
 		size: int(p.DigestSize),
 	}
@@ -152,10 +152,6 @@ func (d *Digest) Write(input []byte) (n int, err error) {
 func (d *Digest) compress() error {
 	if len(d.buf) != cap(d.buf) || len(d.buf) != BlockBytes {
 		return errors.New("blake2s: tried to compress when buffer wasn't full")
-	}
-
-	if len(d.h) != 8 {
-		return errors.New("blake2s: internal hash state too large")
 	}
 
 	// Split the buffer into 16x32-bit words.
@@ -328,8 +324,6 @@ func (d *Digest) finalize() ([]byte, error) {
 	dCopy := *d
 	dCopy.buf = make([]byte, cap(d.buf)) // want this zero-padded to BlockSize anyway
 	copy(dCopy.buf, d.buf)
-	dCopy.h = make([]uint32, len(d.h))
-	copy(dCopy.h, d.h)
 
 	// increment counter by size of pending input before padding
 	dCopy.t0 += uint32(len(d.buf))
