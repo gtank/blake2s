@@ -19,7 +19,7 @@ const (
 	// Number of G function rounds for BLAKE2s.
 	RoundCount = 10
 	// Size of a block buffer in bytes
-	BlockBytes = 64
+	BlockSize = 64
 
 	// Initialization vector for BLAKE2s
 	IV0 uint32 = 0x6a09e667
@@ -73,7 +73,8 @@ type Digest struct {
 	t0, t1 uint32
 	f0, f1 uint32
 
-	buf []byte
+	buf    [BlockSize]byte
+	offset int // current offset inside the block
 
 	// size is definted in hash.Hash, and returns the number of bytes Sum will
 	// return. Since BLAKE2 output length is dynamic, so is this.
@@ -95,8 +96,9 @@ func initFromParams(p *parameterBlock) *Digest {
 
 	d := &Digest{
 		h:    [8]uint32{h0, h1, h2, h3, h4, h5, h6, h7},
-		buf:  make([]byte, 0, BlockBytes),
+		buf:  [BlockSize]byte{},
 		size: int(p.DigestSize),
+		// offset implicitly zero
 	}
 
 	return d
@@ -106,33 +108,28 @@ func initFromParams(p *parameterBlock) *Digest {
 func (d *Digest) Write(input []byte) (n int, err error) {
 	bytesWritten := 0
 
-	// If we have capacity, just copy and reslice to wait for a full block. If
-	// we don't have capacity, we'll need to take a full block and compress.
+	// If we have capacity, just copy and wait for a full block. If we don't
+	// have capacity, we'll need to take a full block and compress.
 	for bytesWritten < len(input) {
 		// How much space do we have left in the block?
-		freeBytes := cap(d.buf) - len(d.buf)
+		freeBytes := BlockSize - d.offset
 		inputLeft := len(input) - bytesWritten
 
 		if inputLeft <= freeBytes {
-			oldOffset := len(d.buf)
-			newOffset := len(d.buf) + inputLeft
-			copy(d.buf[oldOffset:newOffset], input[bytesWritten:])
-			d.buf = d.buf[0:newOffset]
+			newOffset := d.offset + inputLeft
+			copy(d.buf[d.offset:newOffset], input[bytesWritten:])
+			d.offset = newOffset
 			return bytesWritten + inputLeft, nil
 		}
 
-		oldOffset := len(d.buf)
-		newOffset := len(d.buf) + freeBytes
-		copy(d.buf[oldOffset:newOffset], input[bytesWritten:bytesWritten+freeBytes])
-		d.buf = d.buf[0:newOffset]
+		copy(d.buf[d.offset:], input[bytesWritten:bytesWritten+freeBytes])
 
 		// increment counter, preserving overflow behavior
-		d.t0 += uint32(len(d.buf))
-		if d.t0 < uint32(len(d.buf)) {
+		d.t0 += BlockSize
+		if d.t0 < BlockSize {
 			d.t1++
 		}
 
-		// compress
 		err := d.compress()
 		if err != nil {
 			// TODO a Hash should never return error on write
@@ -141,7 +138,7 @@ func (d *Digest) Write(input []byte) (n int, err error) {
 
 		// advance pointers
 		bytesWritten += freeBytes
-		d.buf = d.buf[:0]
+		d.offset = 0
 
 		// loop until we can't fill another buffer
 	}
@@ -150,7 +147,7 @@ func (d *Digest) Write(input []byte) (n int, err error) {
 }
 
 func (d *Digest) compress() error {
-	if len(d.buf) != cap(d.buf) || len(d.buf) != BlockBytes {
+	if len(d.buf) != cap(d.buf) || len(d.buf) != BlockSize {
 		return errors.New("blake2s: tried to compress when buffer wasn't full")
 	}
 
@@ -325,15 +322,14 @@ func (d *Digest) finalize() ([]byte, error) {
 
 	// Zero the unused portion of the buffer. This triggers a specific
 	// optimization for memset, see https://codereview.appspot.com/137880043
-	dCopy.buf = d.buf[len(d.buf):cap(d.buf)]
-	for i := range dCopy.buf {
-		dCopy.buf[i] = 0
+	memclrBuf := dCopy.buf[dCopy.offset:BlockSize]
+	for i := range memclrBuf {
+		memclrBuf[i] = 0
 	}
-	dCopy.buf = d.buf[0:cap(d.buf)]
 
 	// increment counter by size of pending input before padding
-	dCopy.t0 += uint32(len(d.buf))
-	if dCopy.t0 < uint32(len(d.buf)) {
+	dCopy.t0 += uint32(d.offset)
+	if dCopy.t0 < uint32(d.offset) {
 		dCopy.t1++
 	}
 	// set last block flag
@@ -416,8 +412,8 @@ func NewDigest(key, salt, personalization []byte, outputBytes int) (*Digest, err
 
 	if key != nil {
 		// Write key to entire first block and compress
-		if len(key) < BlockBytes {
-			keyBuf := make([]byte, BlockBytes)
+		if len(key) < BlockSize {
+			keyBuf := make([]byte, BlockSize)
 			copy(keyBuf, key)
 			digest.Write(keyBuf)
 		}
@@ -448,4 +444,4 @@ func (d *Digest) Size() int { return d.size }
 // BlockSize returns the hash's underlying block size. The Write method must be
 // able to accept any amount of data, but it may operate more efficiently if
 // all writes are a multiple of the block size.
-func (d *Digest) BlockSize() int { return BlockBytes }
+func (d *Digest) BlockSize() int { return BlockSize }
